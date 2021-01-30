@@ -3,26 +3,20 @@ package com.example.csvandchart
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.widget.Button
 import com.opencsv.CSVReader
 import com.opencsv.CSVReaderBuilder
 import java.io.*
 import java.util.*
-import java.io.FileWriter
 import java.io.IOException
-import java.util.Arrays
 import java.io.BufferedReader
-import java.io.FileReader
 import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.Legend.LegendForm
-import com.github.mikephil.charting.components.YAxis.AxisDependency
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
-import com.github.mikephil.charting.highlight.Highlight
-import com.github.mikephil.charting.listener.OnChartValueSelectedListener
-import com.github.mikephil.charting.utils.ColorTemplate
 import kotlin.collections.ArrayList
+import kotlin.math.roundToInt
 
 
 val snp500date: ArrayList<String> = ArrayList() // S&P500 날짜
@@ -30,21 +24,26 @@ val snp500val: ArrayList<String> = ArrayList() // S&P500 값
 val usunemdate: ArrayList<String> = ArrayList() // 미국 실업률 날짜
 val usunemval: ArrayList<String> = ArrayList() // 미국 실업률 값
 
+// Game Length: 10, 20년
+// 휴일, 공휴일로 인해
+// 1년은 대략 250 거래일
+const val gl = 2500
+
+// 게임 시작시 주어지는 과거 데이터의 구간
+// 5년
+const val given = 1250
+
+
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // game length: 5, 10, 20년
-        val gl: Int = 5;
-
-        var count: Int = 0
-
-
         // fileReader 및 csvReader 생성
         var fileReader: BufferedReader? = null
         var csvReader: CSVReader? = null
+        var count = 0
 
 
         // 모든 금융 데이터 csv 파일들은 \app\src\main\assets 에 저장
@@ -52,13 +51,14 @@ class MainActivity : AppCompatActivity() {
 
         // "^GSPC.csv" 파일로 부터 S&P500 historical data 추출
         try {
-            println("\n--- S&P 500 ---")
+            //println("\n--- S&P 500 ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("^GSPC.csv")))
             // 헤더 스킵, 1950-01-03 (헤더 포함 5498번쨰 행)부터 거래량 정보 유효(이전은 0, null 아님).
             csvReader = CSVReaderBuilder(fileReader).withSkipLines(5497).build()
 
             val rsnp500s = csvReader.readAll()
+            count = 0
             for (rsnp500 in rsnp500s) {
                 // snp500에 데이터 추가
                 snp500date.add(count, rsnp500[0])
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                 count += 1
 
                 // 입력 확인
-                println("날짜 : " + snp500date[count-1] + " | " + "값 : " + snp500val[count-1])
+                println("날짜 : " + snp500date[count - 1] + " | " + "값 : " + snp500val[count - 1] + " | " + "COUNT = $count")
                 //println("Date : " + rsnp500[0] + " | " + rsnp500[1] + " | " + rsnp500[2] + " | " + rsnp500[3] + " | " + rsnp500[4] + " | " + rsnp500[5] + " | " + rsnp500[6])
                 // [0]: Date, [1]: Open, [2]: High, [3]: Low, [4]: Close, [5]: Adj Close, [6]: Volume
                 // 1950-01-03 (헤더 포함 5498번쨰 행)부터 거래량 정보 유효(이전은 0, null 아님).
@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: IOException) {
                 println("Closing fileReader/csvParser Error!") // 에러 메시지 출력
                 e.printStackTrace()
+                count = 0
             }
         }
 
@@ -98,10 +99,12 @@ class MainActivity : AppCompatActivity() {
 
             val rusunems = csvReader.readAll()
             for (rusunem in rusunems) {
-                //
+                usunemdate.add(count, rusunem[0])
+                usunemval.add(count, rusunem[1])
+                count += 1
 
-
-
+                //입력 확인
+                println("날짜 : " + usunemdate[count - 1] + " | " + "값 : " + usunemval[count - 1])
                 //println("Date : " + rusunem[0] + " | " + rusunem[1])
                 // [0]: Date, [1]: value
                 // 1948-01-01 (헤더 포함 17번쨰 행)부터 정보 유효.
@@ -115,9 +118,11 @@ class MainActivity : AppCompatActivity() {
             try {
                 fileReader!!.close()
                 csvReader!!.close()
+                count = 0
             } catch (e: IOException) {
                 println("Closing fileReader/csvParser Error!") // 에러 메시지 출력
                 e.printStackTrace()
+                count = 0
             }
         }
 
@@ -130,15 +135,6 @@ class MainActivity : AppCompatActivity() {
     inner class ThreadClass : Thread() {
         override fun run() {
 
-            // Game Length: 10, 20년
-            // 휴일, 공휴일로 인해
-            // 1년은 대략 250 거래일
-            val gl: Int = 10*250
-
-            // 게임 시작시 주어지는 과거 데이터의 구간
-            // 5년
-            val given: Int = 5*250
-
             // 유효구간 가운데 랜덤으로 시작 시점 산출
             // 5년은 대략 1250 거래일
             // 게임 시작 시점으로부터 5년 전, 10년 후의 데이터 확보가 가능해야함
@@ -146,44 +142,54 @@ class MainActivity : AppCompatActivity() {
             // 랜덤으로 숫자를 산출한 뒤 다시 1250을 더해준 값임.
             val random = Random()
             // Starting Point
-            val sp = random.nextInt(snp500date.size-3750) + 1250
-
+            val sp = random.nextInt((snp500date.size - gl - given)) + given
 
             // Entry 배열 생성
-            var entries: ArrayList<Entry> = ArrayList()
+            val snp500en: ArrayList<Entry> = ArrayList()
             // Entry 배열 초기값 입력
-            entries.add(Entry(0F , 0F))
+            snp500en.add(Entry(0F, snp500val[sp - given].toFloat()))
             // 그래프 구현을 위한 LineDataSet 생성
-            var dataset: LineDataSet = LineDataSet(entries, "S&P500 Index")
+            val snp500ds: LineDataSet = LineDataSet(snp500en, "S&P500 Index")
             // 그래프 data 생성 -> 최종 입력 데이터
-            var data: LineData = LineData(dataset)
-            // chart.xml에 배치된 lineChart에 데이터 연결
-            findViewById<LineChart>(R.id.cht_snp500).data = data
+            val snp500d: LineData = LineData(snp500ds)
+            // layout 에 배치된 lineChart 에 데이터 연결
+            findViewById<LineChart>(R.id.cht_snp500).data = snp500d
+
+            println("랜덤넘버 COUNT : " + sp.toString() + " | " + "시작 날짜 : " + snp500date[sp])
 
             runOnUiThread {
-                // 그래프 생성
+                // 차트 생성
                 findViewById<LineChart>(R.id.cht_snp500).animateXY(1, 1)
             }
 
-            for (i in 0 until given + gl) {
-                if (i < given) {
-                    SystemClock.sleep(1)
-                    data.addEntry(Entry(i.toFloat(), snp500val[sp - given + i].toFloat()), 0)
-                    data.notifyDataChanged()
-                    findViewById<LineChart>(R.id.cht_snp500).notifyDataSetChanged()
-                    findViewById<LineChart>(R.id.cht_snp500).invalidate()
-                    //findViewById<LineChart>(R.id.cht_snp500).setVisibleXRangeMaximum(250F)
-                    //findViewById<LineChart>(R.id.cht_snp500).moveViewToX(i.toFloat())
-                } else {
-                    SystemClock.sleep(500)
-                    data.addEntry(Entry(i.toFloat(), snp500val[sp - given + i].toFloat()), 0)
-                    data.notifyDataChanged()
-                    findViewById<LineChart>(R.id.cht_snp500).notifyDataSetChanged()
-                    findViewById<LineChart>(R.id.cht_snp500).invalidate()
-                    findViewById<LineChart>(R.id.cht_snp500).setVisibleXRangeMaximum(125F)
-                    findViewById<LineChart>(R.id.cht_snp500).moveViewToX(i.toFloat())
-                }
+
+            // 차트 데이터 추가
+            for (i in 0..(given -1)) {
+                snp500d.addEntry(Entry((i + 1 - given).toFloat(), snp500val[sp - given + i].toFloat()), 0)
+                println("인덱스 : $i")
             }
+            // 추가분 반영
+            findViewById<LineChart>(R.id.cht_snp500).notifyDataSetChanged()
+            snp500d.notifyDataChanged()
+
+            // 시간에 따른 차트 진행 및 애니메이션 효과 부여
+            // 과거 데이터
+            for (i in 0..(given -1)) {
+                sleep(1)
+                findViewById<LineChart>(R.id.cht_snp500).setVisibleXRangeMaximum(125F) // 125 거래일 ~ 6개월
+                findViewById<LineChart>(R.id.cht_snp500).moveViewToX((i + 1 - given).toFloat())
+            }
+            // 현재 데이터
+            for (i in given..(given + gl)) {
+                    sleep(500) // 1 거래일이 0.5초
+                    snp500d.addEntry(Entry((i + 1 - given).toFloat(), snp500val[sp - given + i].toFloat()), 0)
+                    snp500d.notifyDataChanged()
+                    findViewById<LineChart>(R.id.cht_snp500).notifyDataSetChanged()
+                    findViewById<LineChart>(R.id.cht_snp500).invalidate()
+                    findViewById<LineChart>(R.id.cht_snp500).setVisibleXRangeMaximum(125F) // 125 거래일 ~ 6개월
+                    findViewById<LineChart>(R.id.cht_snp500).moveViewToX((i + 1 - given).toFloat())
+            }
+
         }
     }
 }
