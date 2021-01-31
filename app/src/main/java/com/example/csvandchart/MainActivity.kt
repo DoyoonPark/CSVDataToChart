@@ -2,9 +2,6 @@ package com.example.csvandchart
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.SystemClock
-import android.util.Log
-import android.widget.Button
 import com.opencsv.CSVReader
 import com.opencsv.CSVReaderBuilder
 import java.io.*
@@ -16,7 +13,6 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import kotlin.collections.ArrayList
-import kotlin.math.roundToInt
 
 
 // 지수 및 주요 경제 지표 ArrayList 생성
@@ -33,8 +29,8 @@ val bondrateval: ArrayList<String> = ArrayList() // 10 Year Treasury Bond Rate �
 val indprodate: ArrayList<String> = ArrayList() // 미국 실업률 날짜
 val indproval: ArrayList<String> = ArrayList() // 미국 실업률 값
 
-val usunemdate: ArrayList<String> = ArrayList() // 미국 실업률 날짜
-val usunemval: ArrayList<String> = ArrayList() // 미국 실업률 값
+val unemdate: ArrayList<String> = ArrayList() // 미국 실업률 날짜
+val unemval: ArrayList<String> = ArrayList() // 미국 실업률 값
 
 val infratedate: ArrayList<String> = ArrayList() // Inflation rate 날짜
 val infrateval: ArrayList<String> = ArrayList() // Inflation rate 값
@@ -72,8 +68,9 @@ class MainActivity : AppCompatActivity() {
             //println("\n--- S&P 500 ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("^GSPC.csv")))
-            // 헤더 스킵, 1950-01-03 (헤더 포함 5498번쨰 행)부터 거래량 정보 유효(이전은 0, null 아님).
-            csvReader = CSVReaderBuilder(fileReader).withSkipLines(5497).build()
+            // 1950-01-03 (헤더 포함 5498번쨰 행)부터 거래량 정보 유효(이전은 0, null 아님).
+            // 헤더 스킵 및 1962-01-02 (헤더 포함 8511번쨰 행)부터 다른 모든 데이터 유효(bondrate).
+            csvReader = CSVReaderBuilder(fileReader).withSkipLines(8510).build()
 
             val rsnp500s = csvReader.readAll()
             count = 0
@@ -112,8 +109,8 @@ class MainActivity : AppCompatActivity() {
             println("\n--- FED Fund Rate ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("fed-funds-rate-historical-chart.csv")))
-            // 헤더 스킵(16행)
-            csvReader = CSVReaderBuilder(fileReader).withSkipLines(16).build()
+            // 헤더 스킵 및 1962-01-02 (헤더 포함 2759번쨰 행)부터 다른 모든 데이터 유효(bondrate).
+            csvReader = CSVReaderBuilder(fileReader).withSkipLines(2758).build()
 
             val rfundrates = csvReader.readAll()
             for (rfundrate in rfundrates) {
@@ -188,8 +185,9 @@ class MainActivity : AppCompatActivity() {
             println("\n--- Industrial production ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("industrial-production-historical-chart.csv")))
-            // 헤더 스킵(16행)
-            csvReader = CSVReaderBuilder(fileReader).withSkipLines(16).build()
+            // 헤더 스킵 및 1962-01-02 (헤더 포함 521번쨰 행)부터 다른 모든 데이터 유효(bondrate).
+            // 521행은 1962-01-01
+            csvReader = CSVReaderBuilder(fileReader).withSkipLines(520).build()
 
             val rindpros = csvReader.readAll()
             for (rindpro in rindpros) {
@@ -226,17 +224,18 @@ class MainActivity : AppCompatActivity() {
             println("\n--- Us National Unemployment Rate ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("us-national-unemployment-rate.csv")))
-            // 헤더 스킵(16행)
-            csvReader = CSVReaderBuilder(fileReader).withSkipLines(16).build()
+            // 헤더 스킵 및 1962-01-02 (헤더 포함 185번쨰 행)부터 다른 모든 데이터 유효(bondrate).
+            // 185행은 1962-01-01
+            csvReader = CSVReaderBuilder(fileReader).withSkipLines(184).build()
 
-            val rusunems = csvReader.readAll()
-            for (rusunem in rusunems) {
-                usunemdate.add(count, rusunem[0])
-                usunemval.add(count, rusunem[1])
+            val runems = csvReader.readAll()
+            for (runem in runems) {
+                unemdate.add(count, runem[0])
+                unemval.add(count, runem[1])
                 count += 1
 
                 //입력 확인
-                println("날짜 : " + usunemdate[count - 1] + " | " + "값 : " + usunemval[count - 1])
+                println("날짜 : " + unemdate[count - 1] + " | " + "값 : " + unemval[count - 1])
                 // [0]: Date, [1]: value
                 // 1948-01-01 (헤더 포함 17번쨰 행)부터 정보 유효.
                 // 이후 월별 데이터(표기상 매월 1일)
@@ -263,8 +262,9 @@ class MainActivity : AppCompatActivity() {
             println("\n--- Inflation rate ---")
 
             fileReader = BufferedReader(InputStreamReader(getAssets().open("historical-inflation-rate-by-year.csv")))
-            // 헤더 스킵(16행)
-            csvReader = CSVReaderBuilder(fileReader).withSkipLines(16).build()
+            // 헤더 스킵 및 1962-01-02 (헤더 포함 63번쨰 행)부터 다른 모든 데이터 유효(bondrate).
+            // 521행은 1961-12-01
+            csvReader = CSVReaderBuilder(fileReader).withSkipLines(62).build()
 
             val rinfrates = csvReader.readAll()
             for (rinfrate in rinfrates) {
@@ -315,6 +315,60 @@ class MainActivity : AppCompatActivity() {
             // Starting Point
             val sp = random.nextInt((snp500date.size - gl - given)) + given
 
+
+            //
+            // Entry 배열 생성
+            val fundrateen: ArrayList<Entry> = ArrayList()
+            // Entry 배열 초기값 입력
+            fundrateen.add(Entry(0F, fundrateval[0].toFloat()))
+            // 그래프 구현을 위한 LineDataSet 생성
+            val fundrateds: LineDataSet = LineDataSet(fundrateen, "Fund Rate")
+            // 그래프 data 생성 -> 최종 입력 데이터
+            val fundrated: LineData = LineData(fundrateds)
+            // layout 에 배치된 lineChart 에 데이터 연결
+            findViewById<LineChart>(R.id.cht_fundrate).data = fundrated
+
+            runOnUiThread {
+                // 차트 생성
+                findViewById<LineChart>(R.id.cht_fundrate).animateXY(1, 1)
+            }
+
+            for (i in 0..(fundrateval.size-25)) {
+                fundrated.addEntry(Entry((i + 1).toFloat(), fundrateval[i].toFloat()), 0)
+                println("인덱스 : $i")
+            }
+            // 추가분 반영
+            findViewById<LineChart>(R.id.cht_fundrate).notifyDataSetChanged()
+            fundrated.notifyDataChanged()
+
+
+            //
+            // Entry 배열 생성
+            val bondrateen: ArrayList<Entry> = ArrayList()
+            // Entry 배열 초기값 입력
+            bondrateen.add(Entry(0F, bondrateval[0].toFloat()))
+            // 그래프 구현을 위한 LineDataSet 생성
+            val bondrateds: LineDataSet = LineDataSet(bondrateen, "Bond Rate")
+            // 그래프 data 생성 -> 최종 입력 데이터
+            val bondrated: LineData = LineData(bondrateds)
+            // layout 에 배치된 lineChart 에 데이터 연결
+            findViewById<LineChart>(R.id.cht_bondrate).data = fundrated
+
+            runOnUiThread {
+                // 차트 생성
+                findViewById<LineChart>(R.id.cht_bondrate).animateXY(1, 1)
+            }
+
+            for (i in 0..(bondrateval.size-25)) {
+                fundrated.addEntry(Entry((i + 1).toFloat(), bondrateval[i].toFloat()), 0)
+                println("인덱스 : $i")
+            }
+            // 추가분 반영
+            findViewById<LineChart>(R.id.cht_bondrate).notifyDataSetChanged()
+            bondrated.notifyDataChanged()
+
+
+            //
             // Entry 배열 생성
             val snp500en: ArrayList<Entry> = ArrayList()
             // Entry 배열 초기값 입력
